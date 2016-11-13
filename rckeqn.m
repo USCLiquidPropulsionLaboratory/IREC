@@ -1,11 +1,11 @@
-function [ hb,ub,tb,h,t  ] = rckeqn( Mp,mdot,Ms_0,Ml,g,Isp,alpha,A,Cd )
+function [ hb,ub,tb,h,t  ] = rckeqn( Mp,mdot,Ms_0,Ml,g,Isp,alpha,A,Cd,of_ratio )
 % solve the rocket equation with drag to obtain the burnout properties as
 % well as the max altitude, assuming perfectly vertical flight
 
 % Assume structural mass of rocket is the base structural mass, plus an
 % overhead as a fraction of propellant mass (accounts for oxidizer, fuel
 % and ox tankage, and fuselage)
-Ms = Ms_0 + alpha*Mp;
+Ms = Ms_0 + alpha*(of_ratio*Mp);
 
 % calculate wet and dry masses of rocket
 M0 = Ms + Mp + Ml;

@@ -9,31 +9,40 @@ format long;
 
 %% Define Inputs
 
+% Requirements
 h =     30000;  %   altitude [ft]
+I_max = 4e4;    %   max total impulse [N-sec]
+Ml = 4;         %   payload mass [kg]
+
+% Engine Properties
 T =     4400;   %   thrust [N]
 Isp =   295;    %   Isp [sec]
 mdot =  1.5;    %   mass flow rate [kg/s]
-Ms_0 =  50;     %   fixed mass [kg]
-Ml = 4;         %   payload mass [kg]
-alpha = 0.5;    %   fuel mass overhead
-g = 9.8066;     %   gravitational accel at Earth's surface [m/s^2]
-I_max = 4e4;    %   max total impulse [N-sec]
 
-%rho = 1;    
+% Rocket Properties
+Ms_0 =  40;     %   fixed mass [kg]
+alpha = 0.5;    %   fuel mass overhead
+of_ratio = 1.8; %   Oxidizer to fuel mass ratio
+
+% Drag Properties    
 d = 0.15;       %   rocket diameter [m]
 Cd = 0.5;       %   drag coefficient 
 
-h = h*0.3048;   % convert to meters
-A = 0.25*pi*d^2; % cross sectional area [m^2]
+% Physical Properties
+g = 9.8066;     %   gravitational accel at Earth's surface [m/s^2]
+
 
 %% Calculations
+
+h = h*0.3048;   % convert to meters
+A = 0.25*pi*d^2; % cross sectional area [m^2]
 
 Mp = 10;    % initial guess of propellant mass [kg]
 
 % create function handle for solver input (solver requires a function
 % with only one input variable, so need to specify other inputs in a 
 % function handle)
-f = @(x) rckeqn_solve(x,mdot,Ms_0,Ml,g,Isp,alpha,h,A,Cd);
+f = @(x) rckeqn_solve(x,mdot,Ms_0,Ml,g,Isp,alpha,h,A,Cd,of_ratio);
 
 % solve for propellant mass required to achieve desired altitude
 Mp = fzero(f,Mp);
@@ -53,7 +62,7 @@ g_max = a_max/g;    % [g's]
 R = M0/Mb;
 
 % compute burnout and apex properties with converged propellant mass
-[hb,ub,tb,h,t] = rckeqn(Mp,mdot,Ms_0,Ml,g,Isp,alpha,A,Cd);
+[hb,ub,tb,h,t] = rckeqn(Mp,mdot,Ms_0,Ml,g,Isp,alpha,A,Cd,of_ratio);
 
 % write results into a table
 Results = [Mp;M0;Mb;a_max;g_max;R;tb;t;hb;h;ub;I];
