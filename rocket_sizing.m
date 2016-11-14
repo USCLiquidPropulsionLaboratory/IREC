@@ -21,8 +21,10 @@ mdot =  1.5;    %   mass flow rate [kg/s]
 
 % Rocket Properties
 Ms_0 =  40;     %   fixed mass [kg]
-alpha = 0.5;    %   fuel mass overhead
+alpha = 0.3;    %   fuel mass overhead
 of_ratio = 1.8; %   Oxidizer to fuel mass ratio
+rho_p = 810;    %   propellant density [kg/m^3]
+P_ox = 2000;    %   ox tank pressure [Psi]
 
 % Drag Properties    
 d = 0.15;       %   rocket diameter [m]
@@ -30,19 +32,32 @@ Cd = 0.5;       %   drag coefficient
 
 % Physical Properties
 g = 9.8066;     %   gravitational accel at Earth's surface [m/s^2]
+Req = 6378.14e3;%   Earth's equatorial radius [m]
+Rp = 6356.8e3;  %   Earth's polar radius [m]  
+lat = 34.42132; %   Latitude of SpacePort America [deg]
+mu = 3.986004418e14;    %   Earth's gravitational parameter [m^2/s^3]  
+R_univ = 8.3144598;     %   Universal gas constant [J/mol-K]
+MM_ox = 31.9988e-3;     %   Molar mass of oxygen gas (O2) [kg/mol]
+T_amb = 298.15; %   Ambient temperature [K]
 
 
 %% Calculations
 
+P_ox = P_ox * 6894.75729;   % convert to Pascals
+rho_ox = P_ox/(R_univ/MM_ox)/T_amb; % get density of oxygen in tank
+
+R_sp = sqrt( ((Req^2*cosd(lat))^2 + (Rp^2*sind(lat))^2) / ...
+             ((Req*cosd(lat))^2 + (Rp*sind(lat))^2) );
+
 h = h*0.3048;   % convert to meters
-A = 0.25*pi*d^2; % cross sectional area [m^2]
 
 Mp = 10;    % initial guess of propellant mass [kg]
 
 % create function handle for solver input (solver requires a function
 % with only one input variable, so need to specify other inputs in a 
 % function handle)
-f = @(x) rckeqn_solve(x,mdot,Ms_0,Ml,g,Isp,alpha,h,A,Cd,of_ratio);
+q = [mdot,Ms_0,Ml,g,Isp,alpha,d,Cd,of_ratio,R_sp,mu,rho_p,rho_ox];
+f = @(x) rckeqn_solve(x,q,h);
 
 % solve for propellant mass required to achieve desired altitude
 Mp = fzero(f,Mp);
@@ -62,7 +77,7 @@ g_max = a_max/g;    % [g's]
 R = M0/Mb;
 
 % compute burnout and apex properties with converged propellant mass
-[hb,ub,tb,h,t] = rckeqn(Mp,mdot,Ms_0,Ml,g,Isp,alpha,A,Cd,of_ratio);
+[hb,ub,tb,h,t] = rckeqn(Mp,q);
 
 % write results into a table
 Results = [Mp;M0;Mb;a_max;g_max;R;tb;t;hb;h;ub;I];

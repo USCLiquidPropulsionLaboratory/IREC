@@ -1,7 +1,7 @@
-function [ F ] = rckeqn_solve(Mp,mdot,Ms_0,Ml,g,Isp,alpha,h,A,Cd,of_ratio)
+function [ F ] = rckeqn_solve(Mp,q,h)
 
 % get altitude of apex with a specified propellant mass
-[~,~,~,alt,~] = rckeqn(Mp,mdot,Ms_0,Ml,g,Isp,alpha,A,Cd,of_ratio);
+[~,~,~,alt,~] = rckeqn(Mp,q);
 
 % output difference between calculated altitude and desired altitude.
 % Solver function will attempt to make this difference zero by adjusting
