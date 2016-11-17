@@ -30,7 +30,7 @@ d = 0.20;       %   rocket diameter [m]
 d_tank = d - 0.02;  %   fuel and ox tank diameters [m]
 
 % Drag Properties    
-Cd = 0.3;       %   drag coefficient 
+Cd = 0.2;       %   drag coefficient 
 
 % Physical Properties
 g = 9.8066;     %   gravitational accel at Earth's surface [m/s^2]
@@ -45,8 +45,8 @@ T_amb = 298.15; %   Ambient temperature [K]
 % fuel and ox tank material properties [kg/m^3] & [Pa]
 rho_tank = 8000;        %   Density of 304 SS [kg/m^3]
 sig_tank = 500e6;       %   Yield Stress of 304 SS [Pa]
-rho_tank = 1800;        % Carbon Fiber
-sig_tank = 6370e6;      % Carbon Fiber
+% rho_tank = 1800;        % Carbon Fiber
+% sig_tank = 6370e6;      % Carbon Fiber
 
 FS_tank = 1.2;  %   Safety factor on tank failure
 
