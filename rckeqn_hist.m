@@ -1,6 +1,6 @@
-function [ hb,ub,tb,h,t  ] = rckeqn( Mp,q )
-% solve the rocket equation with drag to obtain the burnout properties as
-% well as the max altitude, assuming perfectly vertical flight
+function [ h,u,T,t ] = rckeqn_hist( Mp,q )
+% solve the rocket equation with drag; outputs time history of trajectory
+% data for plotting purposes
 
 % simulation is currently 1-D, with positive being up
 
@@ -63,10 +63,12 @@ M0 = Ms + Mp + Ml;
 Mb = Ms + Ml;
 
 %% Initialize Variables for Numerical Integration
+n = 1;          % initialize index counter
 mass = M0;      % get initial wet mass
-t= 0;           % specify start time [sec]
-u = 0;          % specify initial velocity (starting on launchpad) [m/s]
-alt = 0;        % specify initial altitude (launchpad) [m]
+u(1) = 0;       % specify initial velocity (starting on launchpad) [m/s]
+h(1) = 0;       % specify initial altitude (launchpad) [m]
+T(1) = T_alt(h(1)); % Air temperature at altitude (launchpad) [K]
+t(1) = 0;       % time at initial altitude (launchpad) [sec]
 
 %% Numerical Integration for Boost Phase
 
@@ -74,8 +76,9 @@ alt = 0;        % specify initial altitude (launchpad) [m]
 % numerical integration uses differential form of the rocket equation with
 % drag force D=0.5*rho*u^2*A*Cd
 while mass > Mb
-    grav = mu/(R_sp+alt)^2; % calculate local gravity
-    rho = rho_alt(alt);     % calculate local atmospheric density
+    n = n + 1;              % increment counter
+    grav = mu/(R_sp+h(n-1))^2; % calculate local gravity
+    rho = rho_alt(h(n-1));     % calculate local atmospheric density
     
     % find change in velocity over timestep due to the effect of thrust,
     % drag, and gravity
@@ -86,35 +89,43 @@ while mass > Mb
     %         obtained empirically or using CFD - yay...)
     %     u = magnitude of velocity vector
     
-    du = (g*Isp*mdot/mass - 0.5*rho*u^2*A*Cd/mass - grav)*dt;
+    du = (g*Isp*mdot/mass - 0.5*rho*u(n-1)^2*A*Cd/mass - grav)*dt;
     mass = mass - mdot*dt;  % get updated mass as propellant is ejected
-    
-    u = u + du;         % update velocity
-    alt = alt + u*dt;   % update altitude
-    t = t + dt;         % increment time step
+   
+    % append data to arrays for output
+    u(n) = u(n-1) + du;
+    h(n) = h(n-1) + u(n)*dt;
+    T(n) = T_alt(h(n));
+    t(n) = t(n-1) + dt;
 end
 
-hb = alt;   % get burnout altitude
-ub = u;     % get burnout velocity
-tb = t;     % get burnout time
 
 %% Numerical Integration for Coast Phase
 
 % continue iterations while velocity is positive (until apex)
-while u > 0
-    grav = mu/(R_sp+alt)^2; % calculate local gravity
-    rho = rho_alt(alt);     % calculate local atmospheric density
+while u(n) > 0
+    n = n + 1;              % increment counter
+    grav = mu/(R_sp+h(n-1))^2; % calculate local gravity
+    rho = rho_alt(h(n-1));     % calculate local atmospheric density
     
     % find change in velocity over timestep due to the effect of thrust,
     % drag, and gravity
-    du = -(0.5*rho*u^2*A*Cd/mass + grav)*dt;
+    du = -(0.5*rho*u(n-1)^2*A*Cd/mass + grav)*dt;
     
-    u = u + du;         % update velocity
-    alt = alt + u*dt;   % update altitude  
-    t = t + dt;         % increment time step
+    % append data to arrays for output
+    u(n) = u(n-1) + du;
+    h(n) = h(n-1) + u(n)*dt;  
+    T(n) = T_alt(h(n));
+    t(n) = t(n-1) + dt;
 end
 
-h = alt;    % get max altitude
+% if iterations go (slightly) past apogee, delete last station value
+if u(end) < 0
+    u = u(1:end-1);
+    h = h(1:end-1);
+    T = T(1:end-1);
+    t = t(1:end-1);
+end
 
 
 end
