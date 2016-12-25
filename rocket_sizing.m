@@ -22,6 +22,8 @@
 %     definietly make results more accurate)
 %   - Can we use Carbon Fiber fuel tanks? This would definitely make the
 %     vehicle lighter and use less fuel, making it even lighter, etc.
+%   - How do we get the mass and volume of the required tank pressurant?
+%     How is this sized??
 
 
 clc;
@@ -29,7 +31,7 @@ format long;
 
 %% User Specific - You may want to change this to match your preferences
 
-dir = '~/Desktop/IREC/'; % location of output files
+dir = '~/Documents/Data Files/USC/LPL/IREC/'; % location of output files
 % NOTE: WINDOWS USERS NEED TO USE \ instead of / IN DIRECTORY
 % SPECIFICATION. / IS RESERVED FOR UNIX SYSTEMS
 
@@ -54,8 +56,9 @@ of_ratio = 1.8; %   Oxidizer to fuel mass ratio
 rho_f = 810;    %   propellant density [kg/m^3]
 P_f = 500;      %   Propellant pressure [Psi]
 P_ox = 2000;    %   ox tank pressure [Psi]
-d = 0.20;       %   rocket diameter [m]
-d_tank = d - 0.02;  %   fuel and ox tank diameters [m]
+P_He = 2000;    %   pressurant tank pressure [Psi]
+d = 6;          %   rocket diameter [in]
+d_tank = 3.5;   %   fuel, ox and pressurant tank diameters [in]
 
 % Drag Properties    
 Cd = 0.2;       %   drag coefficient 
@@ -68,6 +71,7 @@ lat = 34.42132; %   Latitude of SpacePort America [deg]
 mu = 3.986004418e14;    %   Earth's gravitational parameter [m^2/s^3]  
 R_univ = 8.3144598;     %   Universal gas constant [J/mol-K]
 MM_ox = 31.9988e-3;     %   Molar mass of oxygen gas (O2) [kg/mol]
+MM_He = 4.002602e-3;    %   Molar mass of helium gas (He) [kg/mol]
 MM_air = 28.964e-3;     %   Molar mass of air [kg/mol]
 T_amb = 298.15; %   Ambient temperature (Sea Level) [K]
 gam = 1.4;      %   Specific heat capacity ratio for air [-]
@@ -82,25 +86,35 @@ FS_tank = 1.2;  %   Safety factor on tank failure
 % Simulation Properties
 dt = 0.01;      %   simulation time-step [sec]
 
+% Conversion Factors
+psi2pa = 6894.75729;    %   PSI to Pascals
+ft2m = 0.3048;          %   feet to meters
+ft2in = 12;             %   feet to inches
+in2m = ft2m/ft2in;      %   inches to meters
 
 %% Iterate to Solve for Propellant Mass
 
-P_f = P_f * 6894.75729;     % convert to Pascals
-P_ox = P_ox * 6894.75729;   % convert to Pascals
+d = d * in2m;           % convert to meters
+d_tank = d_tank * in2m; % convert to meters
+
+P_f = P_f * psi2pa;     % convert to Pascals
+P_ox = P_ox * psi2pa;   % convert to Pascals
+P_He = P_He * psi2pa;   % convert to Pascals
 rho_ox = P_ox/(R_univ/MM_ox)/T_amb; % get density of oxygen in tank
+rho_He = P_He/(R_univ/MM_He)/T_amb; % get density of helium in tank
 
 R_sp = sqrt( ((Req^2*cosd(lat))^2 + (Rp^2*sind(lat))^2) / ...
              ((Req*cosd(lat))^2 + (Rp*sind(lat))^2) );
 
-h = h*0.3048;   % convert to meters
+h = h * ft2m;   % convert to meters
 
 Mp = 10;    % initial guess of propellant mass [kg]
 
 % create function handle for solver input (solver requires a function
 % with only one input variable, so need to specify other inputs in a 
 % function handle)
-q = [mdot,Ms_0,Ml,g,Isp,alpha,d,Cd,of_ratio,R_sp,mu,rho_f,rho_ox,...
-    rho_tank,sig_tank,FS_tank,P_f,P_ox,d_tank,dt];
+q = [mdot,Ms_0,Ml,g,Isp,alpha,d,Cd,of_ratio,R_sp,mu,rho_f,rho_ox,rho_He,...
+    rho_tank,sig_tank,FS_tank,P_f,P_ox,P_He,d_tank,dt];
 f = @(x) rckeqn_solve(x,q,h);
 
 % solve for propellant mass required to achieve desired altitude
@@ -121,23 +135,35 @@ Mox = Mp - Mf;          % oxidizer mass
 
 Vf = Mp/rho_f;      % volume of propellant
 Vox = Mox/rho_ox;   % volume of oxidizer
+Vpress = Vf/4;      % volume of pressurant
+Mpress = Vpress * rho_He;
 
 % we are using cylindrical tanks with domed ends, so lets find the height
 % of the cylindrical portion of the tanks
 W_f = (Vf - pi*d_tank^3/6)/(pi*d_tank^2/4);  
 W_ox = (Vox - pi*d_tank^3/6)/(pi*d_tank^2/4);
+W_press = (Vpress - pi*d_tank^3/6)/(pi*d_tank^2/4);
 
-% determine total heigh of tanks
+% determine total height of tanks
 h_tank_f = W_f + d_tank;
 h_tank_ox = W_ox + d_tank;
+h_tank_press = W_press + d_tank;
+
+height = h_tank_f + h_tank_ox + h_tank_press;
 
 % determine masses of tanks, assuming a safety factor on yield stress
 M_tank_f = pi*d_tank^2/2*(d_tank/2+W_f)*FS_tank*P_f*rho_tank/sig_tank;
 M_tank_ox = pi*d_tank^2/2*(d_tank/2+W_ox)*FS_tank*P_ox*rho_tank/sig_tank;
+M_tank_press = 0.5*pi*d_tank^2/2*(d_tank/2+W_press)*FS_tank*P_He*...
+                rho_He/sig_tank;
+            
+% determine mass of airframe and housing (estimated as an overhead to the
+% propellant mass
+M_frame = alpha*Mp;
 
 % get mass values of rocket from converged propellant mass
-Ms = Ms_0 + M_tank_f + M_tank_ox + alpha*Mp;
-M0 = Ms + Mp + Ml;
+Ms = Ms_0 + M_tank_f + M_tank_ox + M_tank_press + M_frame;
+M0 = Ms + Mp + Mpress + Ml;
 Mb = Ms + Ml;
 
 % get rocket mass ratio

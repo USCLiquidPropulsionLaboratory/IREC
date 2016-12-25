@@ -20,13 +20,15 @@ R_sp = q(10);
 mu = q(11);
 rho_f = q(12);
 rho_ox = q(13);
-rho_tank = q(14);
-sig_tank = q(15);
-FS_tank = q(16);
-P_f = q(17);
-P_ox = q(18);
-d_tank = q(19);
-dt = q(20);
+rho_press = q(14);
+rho_tank = q(15);
+sig_tank = q(16);
+FS_tank = q(17);
+P_f = q(18);
+P_ox = q(19);
+P_press = q(20);
+d_tank = q(21);
+dt = q(22);
 
 %% Compute Masses and Volumes
 
@@ -41,14 +43,21 @@ Mox = Mp - Mf;          % oxidizer mass
 Vf = Mf/rho_f;      % volume of propellant
 Vox = Mox/rho_ox;   % volume of oxidizer
 
+% for now lets assume the pressurant volume is 1/4 fuel volume
+Vpress = Vf/4;      % volume of pressurant
+Mpress = Vpress * rho_press;
+
 % we are using cylindrical tanks with domed ends, so lets find the height
 % of the cylindrical portion of the tanks
 W_f = (Vf - pi*d_tank^3/6)/(pi*d_tank^2/4);  
 W_ox = (Vox - pi*d_tank^3/6)/(pi*d_tank^2/4);
+W_press = (Vpress - pi*d_tank^3/6)/(pi*d_tank^2/4);
 
 % determine masses of tanks, assuming a safety factor on yield stress
 M_tank_f = 0.5*pi*d_tank^2/2*(d_tank/2+W_f)*FS_tank*P_f*rho_tank/sig_tank;
 M_tank_ox = 0.5*pi*d_tank^2/2*(d_tank/2+W_ox)*FS_tank*P_ox*rho_tank/sig_tank;
+M_tank_press = 0.5*pi*d_tank^2/2*(d_tank/2+W_press)*FS_tank*P_press*...
+                rho_press/sig_tank;
 
 % determine mass of airframe and housing (estimated as an overhead to the
 % propellant mass
@@ -56,10 +65,10 @@ M_frame = alpha*Mp;
 
 % Assume structural mass of rocket is the base structural mass, plus
 % tankage masses, and an overhead for the rest of the fuselage
-Ms = Ms_0 + M_tank_f + M_tank_ox + M_frame;
+Ms = Ms_0 + M_tank_f + M_tank_ox + M_tank_press + M_frame;
 
 % calculate wet and dry masses of rocket
-M0 = Ms + Mp + Ml;
+M0 = Ms + Mp + Mpress + Ml;
 Mb = Ms + Ml;
 
 %% Initialize Variables for Numerical Integration
