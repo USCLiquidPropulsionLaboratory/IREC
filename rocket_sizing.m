@@ -11,6 +11,8 @@
 %   - Modify fixed mass to be more accurate than an arbitrary number.
 %     Perhaps set it to a sum of smaller fixed masses, like bulkhead masses
 %     and nosecone, etc.
+%   - Restrict pressurant tank to being a sphere. Right now its calculating
+%     it as a pill with a negative interstitial height since its so small..
 %   - Highlight max values on plots (probably steal code snippets from
 %     Becca or something)
 %   - Size piping mass accurately
@@ -22,8 +24,6 @@
 %     definietly make results more accurate)
 %   - Can we use Carbon Fiber fuel tanks? This would definitely make the
 %     vehicle lighter and use less fuel, making it even lighter, etc.
-%   - How do we get the mass and volume of the required tank pressurant?
-%     How is this sized??
 
 
 clc;
@@ -55,8 +55,8 @@ alpha = 0.2;    %   fuel mass overhead [-]
 of_ratio = 1.8; %   Oxidizer to fuel mass ratio
 rho_f = 810;    %   propellant density [kg/m^3]
 P_f = 500;      %   Propellant pressure [Psi]
-P_ox = 2000;    %   ox tank pressure [Psi]
-P_He = 2000;    %   pressurant tank pressure [Psi]
+P_ox = 3000;    %   ox tank pressure [Psi]
+P_He = 4000;    %   pressurant tank pressure [Psi]
 d = 6;          %   rocket diameter [in]
 d_tank = 3.5;   %   fuel, ox and pressurant tank diameters [in]
 
@@ -135,8 +135,12 @@ Mox = Mp - Mf;          % oxidizer mass
 
 Vf = Mp/rho_f;      % volume of propellant
 Vox = Mox/rho_ox;   % volume of oxidizer
-Vpress = Vf/4;      % volume of pressurant
-Mpress = Vpress * rho_He;
+T_uf = 298;
+P_u = 1.7e5;    % [Pa]
+Zuf = 1;    % assume ideal gas for now
+R_He = R_univ/MM_He;
+Mpress = Zuf*P_u*Vf/R_He/T_uf;
+Vpress = Mpress/rho_He;
 
 % we are using cylindrical tanks with domed ends, so lets find the height
 % of the cylindrical portion of the tanks
@@ -181,16 +185,25 @@ tb_index = find(time==tb);  %   find index of burnout time
 a_max = (vel(tb_index) - vel(tb_index-1))/dt; % [m/s^2]
 g_max = a_max/g;    % [G's]
 
+% obtain local speed of sound at each time-step
+a = (gam*(R_univ/MM_air)*temp).^0.5;    %   [m/s]
+
+% obtain Mach number at each time-step
+Mach = vel./a;                          %   [-]
+
+% obtain Mach number at burnout
+Mach_b = Mach(tb_index);                %   [-]
+
 
 %% Tabulate Results
 
 % write results into a table
-Results = [Mp;M0;Mb;a_max;g_max;R;tb;t;hb;h;ub;I];
+Results = [Mp;M0;Mb;a_max;g_max;R;tb;t;hb;h;ub;Mach_b;I;height];
 Rows = {'Propellant Mass';'Wet Mass';'Dry Mass';'Max Accel';'Max Gs';...
     'R';'burnout time';'apex time';'burnout alt';'apex alt';...
-    'Burnout vel';'Total Impulse'};
+    'Burnout vel';'Burnout Mach #';'Total Impulse';'Rocket Height'};
 
-Units = {'kg';'kg';'kg';'m/s^2';'g';'';'sec';'sec';'m';'m';'m/s';'N-sec'};
+Units = {'kg';'kg';'kg';'m/s^2';'g';'';'sec';'sec';'m';'m';'m/s';'';'N-sec';'m'};
 
 ResultsTable = table(Results,Units,'RowNames',Rows);
 
@@ -205,11 +218,6 @@ writetable(ResultsTable,[dir,'Results.txt'],'Delimiter','\t','WriteRowNames',tru
 %   Generate plots of altitude vs time, velocity vs time, Mach number vs
 %   time, and Mach number vs altitude
 
-% obtain local speed of sound at each time-step
-a = (gam*(R_univ/MM_air)*temp).^0.5;    %   [m/s]
-
-% obtain Mach number at each time-step
-Mach = vel./a;                          %   [-]
 
 figure(1);
 subplot(2,2,1);                     %   begin a subplot (2x2, first cell)

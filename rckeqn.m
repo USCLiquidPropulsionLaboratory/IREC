@@ -43,9 +43,15 @@ Mox = Mp - Mf;          % oxidizer mass
 Vf = Mf/rho_f;      % volume of propellant
 Vox = Mox/rho_ox;   % volume of oxidizer
 
-% for now lets assume the pressurant volume is 1/4 fuel volume
-Vpress = Vf/4;      % volume of pressurant
-Mpress = Vpress * rho_press;
+% lets calculate the pressurant volume based off the fuel properties
+R_univ = 8.3144598;
+MM_He = 4.002602e-3;
+R_He = R_univ/MM_He;
+T_uf = 298;
+P_u = 1.7e5;    % [Pa]
+Zuf = 1;    % assume ideal gas for now
+Mpress = 1.2*Zuf*P_u*Vf/R_He/T_uf;
+Vpress = Mpress/rho_press;
 
 % we are using cylindrical tanks with domed ends, so lets find the height
 % of the cylindrical portion of the tanks
