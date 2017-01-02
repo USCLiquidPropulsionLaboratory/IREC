@@ -57,6 +57,8 @@ rho_f = 810;    %   propellant density [kg/m^3]
 P_f = 15;       %   Propellant pressure [Psi]
 P_ox = 2000;    %   ox tank pressure [Psi]
 P_He = 2000;    %   pressurant tank pressure [Psi]
+P_u = 100;      %   ullage pressure [Psi]
+P_comb = 1200;  %   combustion pressure [Psi]
 d = 6;          %   rocket diameter [in]
 d_tank = 3.5;   %   fuel, ox and pressurant tank diameters [in]
 
@@ -75,6 +77,8 @@ MM_He = 4.002602e-3;    %   Molar mass of helium gas (He) [kg/mol]
 MM_air = 28.964e-3;     %   Molar mass of air [kg/mol]
 T_amb = 298.15; %   Ambient temperature (Sea Level) [K]
 gam = 1.4;      %   Specific heat capacity ratio for air [-]
+gam_He = 1.66;  %   Specific heat capacity ratio for Helium [-]
+Zuf = 1;        %   compressibility of gas (assumed ideal)
 
 % fuel and ox tank material properties [kg/m^3] & [Pa]
 rho_tank = 8000;        %   Density of 304 SS [kg/m^3]
@@ -100,6 +104,8 @@ d_tank = d_tank * in2m; % convert to meters
 P_f = P_f * psi2pa;     % convert to Pascals
 P_ox = P_ox * psi2pa;   % convert to Pascals
 P_He = P_He * psi2pa;   % convert to Pascals
+P_u = P_u * psi2pa;     % convert to Pascals
+P_comb = P_comb*psi2pa; % convert to Pascals
 rho_ox = P_ox/(R_univ/MM_ox)/T_amb; % get density of oxygen in tank
 rho_He = P_He/(R_univ/MM_He)/T_amb; % get density of helium in tank
 
@@ -113,9 +119,13 @@ Mp = 10;    % initial guess of propellant mass [kg]
 % create function handle for solver input (solver requires a function
 % with only one input variable, so need to specify other inputs in a 
 % function handle)
-q = [mdot,Ms_0,Ml,g,Isp,alpha,d,Cd,of_ratio,R_sp,mu,rho_f,rho_ox,rho_He,...
-    rho_tank,sig_tank,FS_tank,P_f,P_ox,P_He,d_tank,dt];
-f = @(x) rckeqn_solve(x,q,h);
+% q = [mdot,Ms_0,Ml,g,Isp,alpha,d,Cd,of_ratio,R_sp,mu,rho_f,rho_ox,rho_He,...
+%     rho_tank,sig_tank,FS_tank,P_f,P_ox,P_He,d_tank,dt];
+q1 = [mdot,g,Isp,d,Cd,R_sp,mu,dt];
+q2 = [Ms_0,Ml,alpha,of_ratio,rho_f,rho_ox,rho_He,rho_tank,sig_tank,...
+        FS_tank,P_f,P_ox,P_He,d_tank,R_univ,MM_He,gam_He,Zuf,P_u,...
+        P_comb,T_amb];
+f = @(x) rckeqn_solve(x,q1,q2,h);
 
 % solve for propellant mass required to achieve desired altitude
 Mp = fzero(f,Mp);
@@ -130,25 +140,9 @@ if I > I_max
            'value, aborting solution']);
 end
 
-Mf = Mp/(1+of_ratio);   % fuel mass
-Mox = Mp - Mf;          % oxidizer mass
-
-Vf = Mp/rho_f;      % volume of propellant
-Vox = Mox/rho_ox;   % volume of oxidizer
-T_uf = 298;
-P_u = 7e5;
-P_comb = 7e6;
-Zuf = 1;    % assume ideal gas for now
-R_He = R_univ/MM_He;
-gam_He = 1.33;
-Mpress = P_u*Vf/R_He/T_uf/Zuf/(1 - (P_comb/P_He)^(1/gam_He));
-Vpress = Mpress/rho_He;
-
-% we are using cylindrical tanks with domed ends, so lets find the height
-% of the cylindrical portion of the tanks
-W_f = (Vf - pi*d_tank^3/6)/(pi*d_tank^2/4);  
-W_ox = (Vox - pi*d_tank^3/6)/(pi*d_tank^2/4);
-W_press = (Vpress - pi*d_tank^3/6)/(pi*d_tank^2/4);
+% get rocket properties from converged propellant mass
+[Mf,Mox,Mpress,Vf,Vox,Vpress,W_f,W_ox,W_press,M_tank_f,M_tank_ox,...
+    M_tank_press,M_frame,Ms,M0,Mb] = getMassAndVolume(q2,Mp);
 
 % determine total height of tanks
 h_tank_f = W_f + d_tank;
@@ -157,29 +151,15 @@ h_tank_press = W_press + d_tank;
 
 height = h_tank_f + h_tank_ox + h_tank_press;
 
-% determine masses of tanks, assuming a safety factor on yield stress
-M_tank_f = pi*d_tank^2/2*(d_tank/2+W_f)*FS_tank*P_f*rho_tank/sig_tank;
-M_tank_ox = pi*d_tank^2/2*(d_tank/2+W_ox)*FS_tank*P_ox*rho_tank/sig_tank;
-M_tank_press = 0.5*pi*d_tank^2/2*(d_tank/2+W_press)*FS_tank*P_He*...
-                rho_He/sig_tank;
-            
-% determine mass of airframe and housing (estimated as an overhead to the
-% propellant mass
-M_frame = alpha*Mp;
-
-% get mass values of rocket from converged propellant mass
-Ms = Ms_0 + M_tank_f + M_tank_ox + M_tank_press + M_frame;
-M0 = Ms + Mp + Mpress + Ml;
-Mb = Ms + Ml;
-
 % get rocket mass ratio
 R = M0/Mb;
 
 % compute burnout and apex properties with converged propellant mass
-[hb,ub,tb,h,t] = rckeqn(Mp,q);
+[hb,ub,tb,h,t] = rckeqn(Mp,q1,q2);
 
-[alt,vel,temp,time] = rckeqn_hist(Mp,q);%   get altitude and velocity, and 
-                                        %   air temp vs time
+%   get altitude and velocity, and air temp vs time
+[alt,vel,temp,time] = rckeqn_hist(Mp,q1,q2);
+                                        
 
 tb_index = find(time==tb);  %   find index of burnout time
 

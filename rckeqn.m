@@ -1,4 +1,4 @@
-function [ hb,ub,tb,h,t  ] = rckeqn( Mp,q )
+function [ hb,ub,tb,h,t  ] = rckeqn( Mp,q1,q2 )
 % solve the rocket equation with drag to obtain the burnout properties as
 % well as the max altitude, assuming perfectly vertical flight
 
@@ -7,77 +7,21 @@ function [ hb,ub,tb,h,t  ] = rckeqn( Mp,q )
 %% Extract Data
 
 % extract data from array
-mdot = q(1);
-Ms_0 = q(2);
-Ml = q(3);
-g = q(4);
-Isp = q(5);
-alpha = q(6);
-d = q(7);
-Cd = q(8);
-of_ratio = q(9);
-R_sp = q(10);
-mu = q(11);
-rho_f = q(12);
-rho_ox = q(13);
-rho_press = q(14);
-rho_tank = q(15);
-sig_tank = q(16);
-FS_tank = q(17);
-P_f = q(18);
-P_ox = q(19);
-P_press = q(20);
-d_tank = q(21);
-dt = q(22);
+mdot = q1(1);
+g = q1(2);
+Isp = q1(3);
+d = q1(4);
+Cd = q1(5);
+R_sp = q1(6);
+mu = q1(7);
+dt = q1(8);
 
 %% Compute Masses and Volumes
 
 % calculate cross-sectional area of rocket
 A = 0.25*pi*d^2;
 
-% split propellant mass into fuel mass and oxidizer mass
-Mf = Mp/(1+of_ratio);   % fuel mass
-Mox = Mp - Mf;          % oxidizer mass
-
-% get volumes
-Vf = Mf/rho_f;      % volume of propellant
-Vox = Mox/rho_ox;   % volume of oxidizer
-
-% lets calculate the pressurant volume based off the fuel properties
-R_univ = 8.3144598;
-MM_He = 4.002602e-3;
-R_He = R_univ/MM_He;
-T_uf = 298;
-P_u = 7e5; 
-P_comb = 7e6;
-gam_He = 1.33;
-Zuf = 1;    % assume ideal gas for now
-Mpress = P_u*Vf/R_He/T_uf/Zuf/(1 - (P_comb/P_press)^(1/gam_He));
-Vpress = Mpress/rho_press;
-
-% we are using cylindrical tanks with domed ends, so lets find the height
-% of the cylindrical portion of the tanks
-W_f = (Vf - pi*d_tank^3/6)/(pi*d_tank^2/4);  
-W_ox = (Vox - pi*d_tank^3/6)/(pi*d_tank^2/4);
-W_press = (Vpress - pi*d_tank^3/6)/(pi*d_tank^2/4);
-
-% determine masses of tanks, assuming a safety factor on yield stress
-M_tank_f = 0.5*pi*d_tank^2/2*(d_tank/2+W_f)*FS_tank*P_f*rho_tank/sig_tank;
-M_tank_ox = 0.5*pi*d_tank^2/2*(d_tank/2+W_ox)*FS_tank*P_ox*rho_tank/sig_tank;
-M_tank_press = 0.5*pi*d_tank^2/2*(d_tank/2+W_press)*FS_tank*P_press*...
-                rho_press/sig_tank;
-
-% determine mass of airframe and housing (estimated as an overhead to the
-% propellant mass
-M_frame = alpha*Mp;
-
-% Assume structural mass of rocket is the base structural mass, plus
-% tankage masses, and an overhead for the rest of the fuselage
-Ms = Ms_0 + M_tank_f + M_tank_ox + M_tank_press + M_frame;
-
-% calculate wet and dry masses of rocket
-M0 = Ms + Mp + Mpress + Ml;
-Mb = Ms + Ml;
+[~,~,~,~,~,~,~,~,~,~,~,~,~,~,M0,Mb] = getMassAndVolume(q2,Mp);
 
 %% Initialize Variables for Numerical Integration
 mass = M0;      % get initial wet mass
