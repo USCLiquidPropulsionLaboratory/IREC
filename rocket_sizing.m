@@ -54,9 +54,9 @@ M_bulkhead = 2; %   bulkhead mass [kg]
 alpha = 0.2;    %   fuel mass overhead [-]
 of_ratio = 1.8; %   Oxidizer to fuel mass ratio
 rho_f = 810;    %   propellant density [kg/m^3]
-P_f = 500;      %   Propellant pressure [Psi]
-P_ox = 3000;    %   ox tank pressure [Psi]
-P_He = 4000;    %   pressurant tank pressure [Psi]
+P_f = 15;       %   Propellant pressure [Psi]
+P_ox = 2000;    %   ox tank pressure [Psi]
+P_He = 2000;    %   pressurant tank pressure [Psi]
 d = 6;          %   rocket diameter [in]
 d_tank = 3.5;   %   fuel, ox and pressurant tank diameters [in]
 
@@ -136,10 +136,12 @@ Mox = Mp - Mf;          % oxidizer mass
 Vf = Mp/rho_f;      % volume of propellant
 Vox = Mox/rho_ox;   % volume of oxidizer
 T_uf = 298;
-P_u = 1.7e5;    % [Pa]
+P_u = 7e5;
+P_comb = 7e6;
 Zuf = 1;    % assume ideal gas for now
 R_He = R_univ/MM_He;
-Mpress = Zuf*P_u*Vf/R_He/T_uf;
+gam_He = 1.33;
+Mpress = P_u*Vf/R_He/T_uf/Zuf/(1 - (P_comb/P_He)^(1/gam_He));
 Vpress = Mpress/rho_He;
 
 % we are using cylindrical tanks with domed ends, so lets find the height

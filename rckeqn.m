@@ -48,9 +48,11 @@ R_univ = 8.3144598;
 MM_He = 4.002602e-3;
 R_He = R_univ/MM_He;
 T_uf = 298;
-P_u = 1.7e5;    % [Pa]
+P_u = 7e5; 
+P_comb = 7e6;
+gam_He = 1.33;
 Zuf = 1;    % assume ideal gas for now
-Mpress = 1.2*Zuf*P_u*Vf/R_He/T_uf;
+Mpress = P_u*Vf/R_He/T_uf/Zuf/(1 - (P_comb/P_press)^(1/gam_He));
 Vpress = Mpress/rho_press;
 
 % we are using cylindrical tanks with domed ends, so lets find the height
