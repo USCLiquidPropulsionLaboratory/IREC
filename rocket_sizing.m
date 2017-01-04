@@ -11,8 +11,6 @@
 %   - Modify fixed mass to be more accurate than an arbitrary number.
 %     Perhaps set it to a sum of smaller fixed masses, like bulkhead masses
 %     and nosecone, etc.
-%   - Restrict pressurant tank to being a sphere. Right now its calculating
-%     it as a pill with a negative interstitial height since its so small..
 %   - Highlight max values on plots (probably steal code snippets from
 %     Becca or something)
 %   - Size piping mass accurately
@@ -59,8 +57,8 @@ P_ox = 2000;    %   ox tank pressure [Psi]
 P_He = 2000;    %   pressurant tank pressure [Psi]
 P_u = 100;      %   ullage pressure [Psi]
 P_comb = 1200;  %   combustion pressure [Psi]
-d = 6;          %   rocket diameter [in]
-d_tank = 3.5;   %   fuel, ox and pressurant tank diameters [in]
+d = 8;          %   rocket diameter [in]
+d_tank = 7;   %   fuel, ox and pressurant tank diameters [in]
 
 % Drag Properties    
 Cd = 0.2;       %   drag coefficient 
@@ -88,13 +86,15 @@ sig_tank = 500e6;       %   Yield Stress of 304 SS [Pa]
 FS_tank = 1.2;  %   Safety factor on tank failure
 
 % Simulation Properties
-dt = 0.01;      %   simulation time-step [sec]
+dt = 1e-4;      %   simulation time-step [sec]
 
 % Conversion Factors
 psi2pa = 6894.75729;    %   PSI to Pascals
 ft2m = 0.3048;          %   feet to meters
 ft2in = 12;             %   feet to inches
 in2m = ft2m/ft2in;      %   inches to meters
+lbf2N = 4.44822;        %   pound-force to Newtons
+lbm2kg = 0.453592;      %   pound-mass to kilograms
 
 %% Iterate to Solve for Propellant Mass
 
@@ -141,13 +141,13 @@ if I > I_max
 end
 
 % get rocket properties from converged propellant mass
-[Mf,Mox,Mpress,Vf,Vox,Vpress,W_f,W_ox,W_press,M_tank_f,M_tank_ox,...
+[Mf,Mox,Mpress,Vf,Vox,Vpress,W_f,W_ox,d_tank_press,M_tank_f,M_tank_ox,...
     M_tank_press,M_frame,Ms,M0,Mb] = getMassAndVolume(q2,Mp);
 
 % determine total height of tanks
 h_tank_f = W_f + d_tank;
 h_tank_ox = W_ox + d_tank;
-h_tank_press = W_press + d_tank;
+h_tank_press = d_tank_press;
 
 height = h_tank_f + h_tank_ox + h_tank_press;
 
@@ -180,14 +180,23 @@ Mach_b = Mach(tb_index);                %   [-]
 %% Tabulate Results
 
 % write results into a table
-Results = [Mp;M0;Mb;a_max;g_max;R;tb;t;hb;h;ub;Mach_b;I;height];
+Results_SI = [Mp;M0;Mb;a_max;g_max;R;tb;t;hb;h;ub;Mach_b;I;height];
 Rows = {'Propellant Mass';'Wet Mass';'Dry Mass';'Max Accel';'Max Gs';...
     'R';'burnout time';'apex time';'burnout alt';'apex alt';...
     'Burnout vel';'Burnout Mach #';'Total Impulse';'Rocket Height'};
 
-Units = {'kg';'kg';'kg';'m/s^2';'g';'';'sec';'sec';'m';'m';'m/s';'';'N-sec';'m'};
+Units_Si = {'kg';'kg';'kg';'m/s^2';'g';'';'sec';'sec';'m';'m';'m/s';'';...
+            'N-sec';'m'};
+Units_ENG = {'lb';'lb';'lb';'ft/s^2';'g';'';'sec';'sec';'ft';'ft';'ft/s';...
+             '';'lbf-sec';'ft'};
 
-ResultsTable = table(Results,Units,'RowNames',Rows);
+% conversion factors between English and SI units for each result type
+ENG2SI = [lbm2kg;lbm2kg;lbm2kg;ft2m;1;1;1;1;ft2m;ft2m;ft2m;1;lbf2N;ft2m];
+
+% convert results from SI to English units for secondary output
+Results_ENG = Results_SI./ENG2SI;
+
+ResultsTable = table(Results_SI,Units_Si,Results_ENG,Units_ENG,'RowNames',Rows);
 
 % print out table
 ResultsTable

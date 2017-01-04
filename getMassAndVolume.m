@@ -1,4 +1,4 @@
-function [Mf,Mox,Mpress,Vf,Vox,Vpress,W_f,W_ox,W_press,M_tank_f,...
+function [Mf,Mox,Mpress,Vf,Vox,Vpress,W_f,W_ox,d_tank_press,M_tank_f,...
     M_tank_ox,M_tank_press,M_frame,Ms,M0,Mb] = getMassAndVolume( q2,Mp )
 % compute rocket masses and volumes
 
@@ -44,13 +44,35 @@ Vpress = Mpress/rho_press;
 % of the cylindrical portion of the tanks
 W_f = (Vf - pi*d_tank^3/6)/(pi*d_tank^2/4);  
 W_ox = (Vox - pi*d_tank^3/6)/(pi*d_tank^2/4);
-W_press = (Vpress - pi*d_tank^3/6)/(pi*d_tank^2/4);
+
+
+% get tank thicknesses
+t_tank_f = FS_tank*P_f*d_tank/2/sig_tank;  
+t_tank_ox = FS_tank*P_ox*d_tank/2/sig_tank;
+
+% get volume reduction of usable space due to non-zero tank thickness
+dV_f = 0.25*pi*(d_tank^2 - (d_tank-t_tank_f)^2)*W_f + pi*(d_tank^3 - ...
+    (d_tank - t_tank_f)^3)/6;   
+dV_ox = 0.25*pi*(d_tank^2 - (d_tank-t_tank_ox)^2)*W_f + pi*(d_tank^3 - ...
+    (d_tank - t_tank_ox)^3)/6;   
+
+% get new tank heights required to store specified fluid volume within the
+% specified tank diameter (tanks now have thickness)
+W_f = W_f + dV_f/(0.25*pi*(d_tank-t_tank_f)^2);
+W_ox = W_ox + dV_ox/(0.25*pi*(d_tank-t_tank_ox)^2);
 
 % determine masses of tanks, assuming a safety factor on yield stress
 M_tank_f = 0.5*pi*d_tank^2/2*(d_tank/2+W_f)*FS_tank*P_f*rho_tank/sig_tank;
 M_tank_ox = 0.5*pi*d_tank^2/2*(d_tank/2+W_ox)*FS_tank*P_ox*rho_tank/sig_tank;
-M_tank_press = 0.5*pi*d_tank^2/2*(d_tank/2+W_press)*FS_tank*P_press*...
-                rho_press/sig_tank;
+
+            
+% for the pressurant tank, we don't need much volume so we'll use a sphere
+% instead of domed cylinders
+d_tank_press = (3*Vpress/4/pi)^(1/3);   % inner diameter of tank
+t_tank_press = FS_tank*P_press*d_tank_press/4/sig_tank; % press tank thickness
+M_tank_press = 3/2*FS_tank*P_press*Vpress*rho_tank/sig_tank;
+d_tank_press = d_tank_press + 2*t_tank_press;   % convert tank inner diameter 
+                                                % to be outer diameter
 
 % determine mass of airframe and housing (estimated as an overhead to the
 % propellant mass
