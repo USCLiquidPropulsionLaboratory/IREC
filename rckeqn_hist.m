@@ -1,4 +1,4 @@
-function [ h,u,T,t ] = rckeqn_hist( Mp,q )
+function [ h,u,T,t ] = rckeqn_hist( Mp,q1,q2 )
 % solve the rocket equation with drag; outputs time history of trajectory
 % data for plotting purposes
 
@@ -7,60 +7,22 @@ function [ h,u,T,t ] = rckeqn_hist( Mp,q )
 %% Extract Data
 
 % extract data from array
-mdot = q(1);
-Ms_0 = q(2);
-Ml = q(3);
-g = q(4);
-Isp = q(5);
-alpha = q(6);
-d = q(7);
-Cd = q(8);
-of_ratio = q(9);
-R_sp = q(10);
-mu = q(11);
-rho_f = q(12);
-rho_ox = q(13);
-rho_tank = q(14);
-sig_tank = q(15);
-FS_tank = q(16);
-P_f = q(17);
-P_ox = q(18);
-d_tank = q(19);
-dt = q(20);
+mdot = q1(1);
+g = q1(2);
+Isp = q1(3);
+d = q1(4);
+Cd = q1(5);
+R_sp = q1(6);
+mu = q1(7);
+dt = q1(8);
 
 %% Compute Masses and Volumes
 
 % calculate cross-sectional area of rocket
 A = 0.25*pi*d^2;
 
-% split propellant mass into fuel mass and oxidizer mass
-Mf = Mp/(1+of_ratio);   % fuel mass
-Mox = Mp - Mf;          % oxidizer mass
+[~,~,~,~,~,~,~,~,~,~,~,~,~,~,M0,Mb] = getMassAndVolume(q2,Mp);
 
-% get volumes
-Vf = Mf/rho_f;      % volume of propellant
-Vox = Mox/rho_ox;   % volume of oxidizer
-
-% we are using cylindrical tanks with domed ends, so lets find the height
-% of the cylindrical portion of the tanks
-W_f = (Vf - pi*d_tank^3/6)/(pi*d_tank^2/4);  
-W_ox = (Vox - pi*d_tank^3/6)/(pi*d_tank^2/4);
-
-% determine masses of tanks, assuming a safety factor on yield stress
-M_tank_f = 0.5*pi*d_tank^2/2*(d_tank/2+W_f)*FS_tank*P_f*rho_tank/sig_tank;
-M_tank_ox = 0.5*pi*d_tank^2/2*(d_tank/2+W_ox)*FS_tank*P_ox*rho_tank/sig_tank;
-
-% determine mass of airframe and housing (estimated as an overhead to the
-% propellant mass
-M_frame = alpha*Mp;
-
-% Assume structural mass of rocket is the base structural mass, plus
-% tankage masses, and an overhead for the rest of the fuselage
-Ms = Ms_0 + M_tank_f + M_tank_ox + M_frame;
-
-% calculate wet and dry masses of rocket
-M0 = Ms + Mp + Ml;
-Mb = Ms + Ml;
 
 %% Initialize Variables for Numerical Integration
 n = 1;          % initialize index counter

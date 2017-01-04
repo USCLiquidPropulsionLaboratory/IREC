@@ -29,7 +29,7 @@ format long;
 
 %% User Specific - You may want to change this to match your preferences
 
-dir = '~/Desktop/IREC/'; % location of output files
+dir = '~/Documents/Data Files/USC/LPL/IREC/'; % location of output files
 % NOTE: WINDOWS USERS NEED TO USE \ instead of / IN DIRECTORY
 % SPECIFICATION. / IS RESERVED FOR UNIX SYSTEMS
 
@@ -52,10 +52,13 @@ M_bulkhead = 2; %   bulkhead mass [kg]
 alpha = 0.2;    %   fuel mass overhead [-]
 of_ratio = 1.8; %   Oxidizer to fuel mass ratio
 rho_f = 810;    %   propellant density [kg/m^3]
-P_f = 500;      %   Propellant pressure [Psi]
+P_f = 15;       %   Propellant pressure [Psi]
 P_ox = 2000;    %   ox tank pressure [Psi]
-d = 0.20;       %   rocket diameter [m]
-d_tank = d - 0.02;  %   fuel and ox tank diameters [m]
+P_He = 2000;    %   pressurant tank pressure [Psi]
+P_u = 100;      %   ullage pressure [Psi]
+P_comb = 1200;  %   combustion pressure [Psi]
+d = 8;          %   rocket diameter [in]
+d_tank = 7;   %   fuel, ox and pressurant tank diameters [in]
 
 % Drag Properties    
 Cd = 0.2;       %   drag coefficient 
@@ -68,9 +71,12 @@ lat = 34.42132; %   Latitude of SpacePort America [deg]
 mu = 3.986004418e14;    %   Earth's gravitational parameter [m^2/s^3]  
 R_univ = 8.3144598;     %   Universal gas constant [J/mol-K]
 MM_ox = 31.9988e-3;     %   Molar mass of oxygen gas (O2) [kg/mol]
+MM_He = 4.002602e-3;    %   Molar mass of helium gas (He) [kg/mol]
 MM_air = 28.964e-3;     %   Molar mass of air [kg/mol]
 T_amb = 298.15; %   Ambient temperature (Sea Level) [K]
 gam = 1.4;      %   Specific heat capacity ratio for air [-]
+gam_He = 1.66;  %   Specific heat capacity ratio for Helium [-]
+Zuf = 1;        %   compressibility of gas (assumed ideal)
 
 % fuel and ox tank material properties [kg/m^3] & [Pa]
 rho_tank = 8000;        %   Density of 304 SS [kg/m^3]
@@ -80,28 +86,46 @@ sig_tank = 500e6;       %   Yield Stress of 304 SS [Pa]
 FS_tank = 1.2;  %   Safety factor on tank failure
 
 % Simulation Properties
-dt = 0.01;      %   simulation time-step [sec]
+dt = 1e-4;      %   simulation time-step [sec]
 
+% Conversion Factors
+psi2pa = 6894.75729;    %   PSI to Pascals
+ft2m = 0.3048;          %   feet to meters
+ft2in = 12;             %   feet to inches
+in2m = ft2m/ft2in;      %   inches to meters
+lbf2N = 4.44822;        %   pound-force to Newtons
+lbm2kg = 0.453592;      %   pound-mass to kilograms
 
 %% Iterate to Solve for Propellant Mass
 
-P_f = P_f * 6894.75729;     % convert to Pascals
-P_ox = P_ox * 6894.75729;   % convert to Pascals
+d = d * in2m;           % convert to meters
+d_tank = d_tank * in2m; % convert to meters
+
+P_f = P_f * psi2pa;     % convert to Pascals
+P_ox = P_ox * psi2pa;   % convert to Pascals
+P_He = P_He * psi2pa;   % convert to Pascals
+P_u = P_u * psi2pa;     % convert to Pascals
+P_comb = P_comb*psi2pa; % convert to Pascals
 rho_ox = P_ox/(R_univ/MM_ox)/T_amb; % get density of oxygen in tank
+rho_He = P_He/(R_univ/MM_He)/T_amb; % get density of helium in tank
 
 R_sp = sqrt( ((Req^2*cosd(lat))^2 + (Rp^2*sind(lat))^2) / ...
              ((Req*cosd(lat))^2 + (Rp*sind(lat))^2) );
 
-h = h*0.3048;   % convert to meters
+h = h * ft2m;   % convert to meters
 
 Mp = 10;    % initial guess of propellant mass [kg]
 
 % create function handle for solver input (solver requires a function
 % with only one input variable, so need to specify other inputs in a 
 % function handle)
-q = [mdot,Ms_0,Ml,g,Isp,alpha,d,Cd,of_ratio,R_sp,mu,rho_f,rho_ox,...
-    rho_tank,sig_tank,FS_tank,P_f,P_ox,d_tank,dt];
-f = @(x) rckeqn_solve(x,q,h);
+% q = [mdot,Ms_0,Ml,g,Isp,alpha,d,Cd,of_ratio,R_sp,mu,rho_f,rho_ox,rho_He,...
+%     rho_tank,sig_tank,FS_tank,P_f,P_ox,P_He,d_tank,dt];
+q1 = [mdot,g,Isp,d,Cd,R_sp,mu,dt];
+q2 = [Ms_0,Ml,alpha,of_ratio,rho_f,rho_ox,rho_He,rho_tank,sig_tank,...
+        FS_tank,P_f,P_ox,P_He,d_tank,R_univ,MM_He,gam_He,Zuf,P_u,...
+        P_comb,T_amb];
+f = @(x) rckeqn_solve(x,q1,q2,h);
 
 % solve for propellant mass required to achieve desired altitude
 Mp = fzero(f,Mp);
@@ -116,38 +140,26 @@ if I > I_max
            'value, aborting solution']);
 end
 
-Mf = Mp/(1+of_ratio);   % fuel mass
-Mox = Mp - Mf;          % oxidizer mass
+% get rocket properties from converged propellant mass
+[Mf,Mox,Mpress,Vf,Vox,Vpress,W_f,W_ox,d_tank_press,M_tank_f,M_tank_ox,...
+    M_tank_press,M_frame,Ms,M0,Mb] = getMassAndVolume(q2,Mp);
 
-Vf = Mp/rho_f;      % volume of propellant
-Vox = Mox/rho_ox;   % volume of oxidizer
-
-% we are using cylindrical tanks with domed ends, so lets find the height
-% of the cylindrical portion of the tanks
-W_f = (Vf - pi*d_tank^3/6)/(pi*d_tank^2/4);  
-W_ox = (Vox - pi*d_tank^3/6)/(pi*d_tank^2/4);
-
-% determine total heigh of tanks
+% determine total height of tanks
 h_tank_f = W_f + d_tank;
 h_tank_ox = W_ox + d_tank;
+h_tank_press = d_tank_press;
 
-% determine masses of tanks, assuming a safety factor on yield stress
-M_tank_f = pi*d_tank^2/2*(d_tank/2+W_f)*FS_tank*P_f*rho_tank/sig_tank;
-M_tank_ox = pi*d_tank^2/2*(d_tank/2+W_ox)*FS_tank*P_ox*rho_tank/sig_tank;
-
-% get mass values of rocket from converged propellant mass
-Ms = Ms_0 + M_tank_f + M_tank_ox + alpha*Mp;
-M0 = Ms + Mp + Ml;
-Mb = Ms + Ml;
+height = h_tank_f + h_tank_ox + h_tank_press;
 
 % get rocket mass ratio
 R = M0/Mb;
 
 % compute burnout and apex properties with converged propellant mass
-[hb,ub,tb,h,t] = rckeqn(Mp,q);
+[hb,ub,tb,h,t] = rckeqn(Mp,q1,q2);
 
-[alt,vel,temp,time] = rckeqn_hist(Mp,q);%   get altitude and velocity, and 
-                                        %   air temp vs time
+%   get altitude and velocity, and air temp vs time
+[alt,vel,temp,time] = rckeqn_hist(Mp,q1,q2);
+                                        
 
 tb_index = find(time==tb);  %   find index of burnout time
 
@@ -155,18 +167,36 @@ tb_index = find(time==tb);  %   find index of burnout time
 a_max = (vel(tb_index) - vel(tb_index-1))/dt; % [m/s^2]
 g_max = a_max/g;    % [G's]
 
+% obtain local speed of sound at each time-step
+a = (gam*(R_univ/MM_air)*temp).^0.5;    %   [m/s]
+
+% obtain Mach number at each time-step
+Mach = vel./a;                          %   [-]
+
+% obtain Mach number at burnout
+Mach_b = Mach(tb_index);                %   [-]
+
 
 %% Tabulate Results
 
 % write results into a table
-Results = [Mp;M0;Mb;a_max;g_max;R;tb;t;hb;h;ub;I];
+Results_SI = [Mp;M0;Mb;a_max;g_max;R;tb;t;hb;h;ub;Mach_b;I;height];
 Rows = {'Propellant Mass';'Wet Mass';'Dry Mass';'Max Accel';'Max Gs';...
     'R';'burnout time';'apex time';'burnout alt';'apex alt';...
-    'Burnout vel';'Total Impulse'};
+    'Burnout vel';'Burnout Mach #';'Total Impulse';'Rocket Height'};
 
-Units = {'kg';'kg';'kg';'m/s^2';'g';'';'sec';'sec';'m';'m';'m/s';'N-sec'};
+Units_Si = {'kg';'kg';'kg';'m/s^2';'g';'';'sec';'sec';'m';'m';'m/s';'';...
+            'N-sec';'m'};
+Units_ENG = {'lb';'lb';'lb';'ft/s^2';'g';'';'sec';'sec';'ft';'ft';'ft/s';...
+             '';'lbf-sec';'ft'};
 
-ResultsTable = table(Results,Units,'RowNames',Rows);
+% conversion factors between English and SI units for each result type
+ENG2SI = [lbm2kg;lbm2kg;lbm2kg;ft2m;1;1;1;1;ft2m;ft2m;ft2m;1;lbf2N;ft2m];
+
+% convert results from SI to English units for secondary output
+Results_ENG = Results_SI./ENG2SI;
+
+ResultsTable = table(Results_SI,Units_Si,Results_ENG,Units_ENG,'RowNames',Rows);
 
 % print out table
 ResultsTable
@@ -179,11 +209,6 @@ writetable(ResultsTable,[dir,'Results.txt'],'Delimiter','\t','WriteRowNames',tru
 %   Generate plots of altitude vs time, velocity vs time, Mach number vs
 %   time, and Mach number vs altitude
 
-% obtain local speed of sound at each time-step
-a = (gam*(R_univ/MM_air)*temp).^0.5;    %   [m/s]
-
-% obtain Mach number at each time-step
-Mach = vel./a;                          %   [-]
 
 figure(1);
 subplot(2,2,1);                     %   begin a subplot (2x2, first cell)
