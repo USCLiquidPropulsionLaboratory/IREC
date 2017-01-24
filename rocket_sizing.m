@@ -22,6 +22,10 @@
 %     definietly make results more accurate)
 %   - Can we use Carbon Fiber fuel tanks? This would definitely make the
 %     vehicle lighter and use less fuel, making it even lighter, etc.
+%   - Create some simulated curves to see what happens if we miss our burn
+%     target (i.e. go over or under by 1/10th of a second)
+%   - Get actual radius of Earth at Spaceport America using Earth geodesic
+%     model rather than oblate spheroid model
 
 
 clc;
@@ -38,7 +42,7 @@ dir = '~/Documents/Data Files/USC/LPL/IREC/'; % location of output files
 
 % Requirements
 h =     30000;  %   altitude [ft]
-I_max = 4.04e4; %   max total impulse [N-sec]
+I_max = 40960;  %   max total impulse [N-sec]
 Ml = 4;         %   payload mass [kg]
 
 % Engine Properties
@@ -47,7 +51,7 @@ Isp =   295;    %   Isp [sec]
 mdot =  1.5;    %   mass flow rate [kg/s]
 
 % Rocket Properties
-Ms_0 =  30;     %   fixed mass [kg]
+Ms_0 =  40;     %   fixed mass [kg]
 M_bulkhead = 2; %   bulkhead mass [kg]
 alpha = 0.2;    %   fuel mass overhead [-]
 of_ratio = 1.8; %   Oxidizer to fuel mass ratio
@@ -57,11 +61,12 @@ P_ox = 2000;    %   ox tank pressure [Psi]
 P_He = 2000;    %   pressurant tank pressure [Psi]
 P_u = 100;      %   ullage pressure [Psi]
 P_comb = 1200;  %   combustion pressure [Psi]
-d = 8;          %   rocket diameter [in]
-d_tank = 7;   %   fuel, ox and pressurant tank diameters [in]
+d = 9;          %   rocket diameter [in]
+d_tank = 7.5;   %   fuel, ox and pressurant tank diameters [in]
 
 % Drag Properties    
 Cd = 0.2;       %   drag coefficient 
+visc = 1.81e-5; %   kinematic viscosity of air [Pa-s]
 
 % Physical Properties
 g = 9.8066;     %   gravitational accel at Earth's surface [m/s^2]
@@ -109,6 +114,8 @@ P_comb = P_comb*psi2pa; % convert to Pascals
 rho_ox = P_ox/(R_univ/MM_ox)/T_amb; % get density of oxygen in tank
 rho_He = P_He/(R_univ/MM_He)/T_amb; % get density of helium in tank
 
+% Radius of Earth at Spaceport America (approximated using oblate spheroid
+% model, not geodesic patch model)
 R_sp = sqrt( ((Req^2*cosd(lat))^2 + (Rp^2*sind(lat))^2) / ...
              ((Req*cosd(lat))^2 + (Rp*sind(lat))^2) );
 
@@ -121,7 +128,7 @@ Mp = 10;    % initial guess of propellant mass [kg]
 % function handle)
 % q = [mdot,Ms_0,Ml,g,Isp,alpha,d,Cd,of_ratio,R_sp,mu,rho_f,rho_ox,rho_He,...
 %     rho_tank,sig_tank,FS_tank,P_f,P_ox,P_He,d_tank,dt];
-q1 = [mdot,g,Isp,d,Cd,R_sp,mu,dt];
+q1 = [mdot,g,Isp,d,Cd,R_sp,mu,dt,visc];
 q2 = [Ms_0,Ml,alpha,of_ratio,rho_f,rho_ox,rho_He,rho_tank,sig_tank,...
         FS_tank,P_f,P_ox,P_He,d_tank,R_univ,MM_He,gam_He,Zuf,P_u,...
         P_comb,T_amb];
@@ -183,7 +190,7 @@ Mach_b = Mach(tb_index);                %   [-]
 Results_SI = [Mp;M0;Mb;a_max;g_max;R;tb;t;hb;h;ub;Mach_b;I;height];
 Rows = {'Propellant Mass';'Wet Mass';'Dry Mass';'Max Accel';'Max Gs';...
     'R';'burnout time';'apex time';'burnout alt';'apex alt';...
-    'Burnout vel';'Burnout Mach #';'Total Impulse';'Rocket Height'};
+    'Burnout vel';'Burnout Mach #';'Total Impulse';'Tankage Height'};
 
 Units_Si = {'kg';'kg';'kg';'m/s^2';'g';'';'sec';'sec';'m';'m';'m/s';'';...
             'N-sec';'m'};

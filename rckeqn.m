@@ -15,13 +15,16 @@ Cd = q1(5);
 R_sp = q1(6);
 mu = q1(7);
 dt = q1(8);
+visc = q1(9);
+
+d_tank = q2(14);
 
 %% Compute Masses and Volumes
 
 % calculate cross-sectional area of rocket
 A = 0.25*pi*d^2;
 
-[~,~,~,~,~,~,~,~,~,~,~,~,~,~,M0,Mb] = getMassAndVolume(q2,Mp);
+[~,~,~,~,~,~,W_f,W_ox,d_tank_press,~,~,~,~,~,M0,Mb] = getMassAndVolume(q2,Mp);
 
 %% Initialize Variables for Numerical Integration
 mass = M0;      % get initial wet mass
@@ -47,7 +50,15 @@ while mass > Mb
     %         obtained empirically or using CFD - yay...)
     %     u = magnitude of velocity vector
     
-    du = (g*Isp*mdot/mass - 0.5*rho*u^2*A*Cd/mass - grav)*dt;
+    height = W_f + W_ox + 2*d_tank + d_tank_press;  % apprx rocket height
+    Re = u*height/visc;
+    Cf = 0.445/log(Re)^2.58;    % skin friction coefficient
+    Sw = pi*d*height;           % wetted area
+    
+    Fd = 0.5*rho*u^2*(A*Cd + Sw*Cf); % drag force (form drag + skin 
+                                        % friction drag)
+    
+    du = (g*Isp*mdot/mass - Fd/mass - grav)*dt;
     mass = mass - mdot*dt;  % get updated mass as propellant is ejected
     
     u = u + du;         % update velocity
@@ -66,9 +77,17 @@ while u > 0
     grav = mu/(R_sp+alt)^2; % calculate local gravity
     rho = rho_alt(alt);     % calculate local atmospheric density
     
+    height = W_f + W_ox + 2*d_tank + d_tank_press;  % apprx rocket height
+    Re = u*height/visc;
+    Cf = 0.445/log(Re)^2.58;    % skin friction coefficient
+    Sw = pi*d*height;           % wetted area
+    
+    Fd = 0.5*rho*u^2*(A*Cd + Sw*Cf); % drag force (form drag + skin 
+                                        % friction drag)
+    
     % find change in velocity over timestep due to the effect of thrust,
     % drag, and gravity
-    du = -(0.5*rho*u^2*A*Cd/mass + grav)*dt;
+    du = -(Fd/mass + grav)*dt;
     
     u = u + du;         % update velocity
     alt = alt + u*dt;   % update altitude  
