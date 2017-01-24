@@ -26,6 +26,8 @@
 %     target (i.e. go over or under by 1/10th of a second)
 %   - Get actual radius of Earth at Spaceport America using Earth geodesic
 %     model rather than oblate spheroid model
+%   - Vary thrust with ambient pressure (rather than using Isp, use thrust
+%     equation from nozzle
 
 
 clc;
@@ -47,7 +49,7 @@ Ml = 4;         %   payload mass [kg]
 
 % Engine Properties
 T =     4400;   %   thrust [N]
-Isp =   295;    %   Isp [sec]
+Isp =   250;    %   Isp [sec]
 mdot =  1.5;    %   mass flow rate [kg/s]
 
 % Rocket Properties
@@ -57,12 +59,12 @@ alpha = 0.2;    %   fuel mass overhead [-]
 of_ratio = 1.8; %   Oxidizer to fuel mass ratio
 rho_f = 810;    %   propellant density [kg/m^3]
 P_f = 15;       %   Propellant pressure [Psi]
-P_ox = 2000;    %   ox tank pressure [Psi]
+P_ox = 3500;    %   ox tank pressure [Psi]
 P_He = 2000;    %   pressurant tank pressure [Psi]
 P_u = 100;      %   ullage pressure [Psi]
 P_comb = 1200;  %   combustion pressure [Psi]
-d = 9;          %   rocket diameter [in]
-d_tank = 7.5;   %   fuel, ox and pressurant tank diameters [in]
+d = 8;          %   rocket diameter [in]
+d_tank = 6.5;   %   fuel, ox and pressurant tank diameters [in]
 
 % Drag Properties    
 Cd = 0.2;       %   drag coefficient 
